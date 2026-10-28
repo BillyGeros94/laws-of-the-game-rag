@@ -6,11 +6,10 @@ from pathlib import Path
 import chromadb
 from sentence_transformers import SentenceTransformer
 
-IN = Path("data/processed/chunks.jsonl")
-INDEX_DIR = "index"
+from config import COLLECTION, INDEX_DIR, MODEL_NAME
 
-MODEL_NAME = "BAAI/bge-small-en-v1.5"
-COLLECTION = "football_laws"
+IN = Path("data/processed/chunks.jsonl")
+
 BATCH_SIZE = 32
 MIN_INDEX_CHARS = 60   # chunks shorter than this carry no content (e.g. the back cover)
 
