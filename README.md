@@ -16,7 +16,7 @@ A retrieval-augmented generation (RAG) demo that answers questions about the IFA
 | IFAB Circulars 32, 33 and 34 | AGM decisions, additional Law changes, clarifications |
 | Two trial protocols | Tactical goalkeeper injuries; VAR review of attacking-team offences at set pieces |
 
-Sources and where they come from: [SOURCES.md](SOURCES.md). Questions are answered in English only.
+Sources and where they come from: [SOURCES.md](data/SOURCES.md). Questions are answered in English only.
 
 ## How it works
 
@@ -46,9 +46,8 @@ Settings (model names, k, the gate, the refusal sentence) live in one place: `sr
 
 ## Evaluation
 
-The evaluation set is [`data/eval/questions.csv`](data/eval/questions.csv): 26 questions, each with an expected answer, source file and pages, and a difficulty. It has 21 answerable questions (6 easy, 9 medium, 6 hard), including one with a false premise and one aimed at the strikethrough problem described below, and 5 unanswerable ones. Four questions were held out from any tuning. [`src/eval.py`](src/eval.py) runs every question through the system and saves the results; the graded results are in [`data/eval/results_graded_revised.csv`](data/eval/results_graded_revised.csv).
+The evaluation set is [`data/eval/questions.csv`](data/eval/questions.csv): 26 questions, each with an expected answer, source file and pages, and a difficulty. It has 21 answerable questions (6 easy, 9 medium, 6 hard), including one with a false premise and one aimed at the strikethrough problem described below, and 5 unanswerable ones. Four questions were held out from any tuning. [`src/eval.py`](src/eval.py) runs every question through the system and saves the results; the graded results are in [`data/eval/results_graded.csv`](data/eval/results_graded.csv).
 
-The question set and a first pass of the grades were drafted with Claude's help against the source text, and then reviewed and revised by the author.
 
 ### Retrieval
 
@@ -99,7 +98,7 @@ export GROQ_API_KEY="your-key"   # a free key from console.groq.com; never commi
 streamlit run app.py
 ```
 
-The repository includes the built index, so the demo runs without rebuilding it. To rebuild from the PDFs, download the documents listed in [SOURCES.md](SOURCES.md) into `data/raw/` and run, in order:
+The repository includes the built index, so the demo runs without rebuilding it. To rebuild from the PDFs, download the documents listed in [SOURCES.md](data/SOURCES.md) into `data/raw/` and run, in order:
 
 ```bash
 python src/parse.py && python src/clean.py && python src/chunk.py && python src/ingest.py
@@ -123,4 +122,4 @@ Changing the embedding model means changing `src/config.py` and re-running `src/
 
 ## License
 
-The code in this repository is released under the [MIT License](LICENSE). The Laws of the Game and the IFAB circulars and protocols are published by The IFAB and are not covered by this license; they remain the property of their owner. See [SOURCES.md](SOURCES.md).
+The code in this repository is released under the [MIT License](LICENSE). The Laws of the Game and the IFAB circulars and protocols are published by The IFAB and are not covered by this license; they remain the property of their owner. See [SOURCES.md](data/SOURCES.md).
