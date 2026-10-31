@@ -2,7 +2,7 @@
 
 A retrieval-augmented generation (RAG) demo that answers questions about the IFAB **Laws of the Game 2026/27**. Every answer is built only from the retrieved passages, which are shown next to it so the answer can be checked.
 
-**Live demo:** [LIVE DEMO URL]
+**Live demo:** https://laws-of-the-game-rag-jfwbcgzktfjpzuuyobpk2e.streamlit.app/
 
 > This is a portfolio project, not an official source. It can be wrong. Check the cited pages in the Laws before relying on an answer.
 
@@ -90,8 +90,8 @@ Of the 21 answerable questions, 15 were fully correct, 2 were true but incomplet
 ## Run it yourself
 
 ```bash
-git clone [REPO URL]
-cd [REPO NAME]
+git clone https://github.com/BillyGeros94/laws-of-the-game-rag.git
+cd laws-of-the-game-rag
 python -m venv .venv
 source .venv/bin/activate        # Windows (Git Bash): source .venv/Scripts/activate
 pip install -r requirements.txt
