@@ -1,0 +1,27 @@
+# Virtual environment
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Secrets: the Groq key lives only in an environment variable or Streamlit secrets
+.env
+.env.*
+.streamlit/secrets.toml
+
+# Source PDFs: published by IFAB, not redistributed here (see SOURCES.md)
+data/raw/
+
+# Editor and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# NOTE: index/ and data/processed/chunks.jsonl are deliberately NOT ignored.
+# The deployed app needs the built index.
