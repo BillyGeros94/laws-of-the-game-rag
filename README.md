@@ -118,7 +118,6 @@ Changing the embedding model means changing `src/config.py` and re-running `src/
 
 - **Shared quota.** The demo uses one free Groq key shared by all visitors, so it will sometimes answer that the service is busy. Try again later.
 - **Privacy.** Questions you type are sent to Groq to generate the answer. Do not enter anything personal.
-- **How it was built.** The project was built step by step with Claude as tutor and pair programmer. `src/parse.py` was written by the author; the other scripts were written with Claude and reviewed and explained to the author. The evaluation and its grading are described above.
 
 ## License
 
