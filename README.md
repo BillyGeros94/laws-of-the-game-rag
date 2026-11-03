@@ -55,6 +55,15 @@ A relevant chunk (expected file, overlapping pages) was among the 4 retrieved fo
 
 ### Answers
 
+| Measure (21 answerable questions) | Result |
+|---|---|
+| **Correct** (true and complete; incomplete counts as half) | **16 / 21 (76%)** |
+| Grounded (no claim beyond the retrieved text) | 17 / 21 (81%) |
+| Cited (citations support what is attributed to them) | 20 / 21 (95%) |
+| Unanswerable questions refused | 5 / 5 |
+
+Correctness is the headline number. The weighted score below combines all three checks, so a wrong answer that cites its sources still earns a third of its weight; it is shown for completeness.
+
 Each answer is scored on three checks: **correct** (1, 0.5 for true but incomplete, or 0), **grounded** (no claim beyond the retrieved text) and **cited** (the cited source numbers support what is attributed to them). Unanswerable questions score only on a correct refusal. Questions are weighted by difficulty (1, 2 or 3; unanswerable 2). A refusal of an answerable question scores 0 for correct and for cited, with credit for grounded.
 
 | Tier | Weighted score |
@@ -67,7 +76,7 @@ Each answer is scored on three checks: **correct** (1, 0.5 for true but incomple
 
 Of the 21 answerable questions, 15 were fully correct, 2 were true but incomplete, and 4 were wrong or refused. All 5 unanswerable questions were refused: 2 by the distance gate and 3 by the model itself.
 
-**Read these numbers with care.** There are only 26 questions, so one question moves the score by several points. The author graded the system, the questions were written with the source text open (so their wording may sit closer to the Laws than real users' questions would), and each question was run once. The same model can answer differently on a repeat run even at temperature 0. The score depends on the grading rules above; under stricter rules it comes out nearer 76%.
+**Read these numbers with care.** There are only 26 questions, so one question moves the score by several points. The author graded the system, the questions were written with the source text open (so their wording may sit closer to the Laws than real users' questions would), and each question was run once. The same model can answer differently on a repeat run even at temperature 0. The weighted score depends on the grading rules above; counting correctness alone gives the 76% in the first table.
 
 ### Failure examples
 

@@ -35,7 +35,7 @@ Direct download links:
 
 ## Excluded from the corpus
 
-Kept in the repository under `data/excluded/`, not indexed.
+Kept locally under `data/excluded/`, not indexed and not in the repository.
 
 | filename | title | reason |
 |---|---|---|

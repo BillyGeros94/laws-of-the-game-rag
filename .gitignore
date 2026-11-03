@@ -14,8 +14,12 @@ __pycache__/
 .env.*
 .streamlit/secrets.toml
 
-# Source PDFs: published by IFAB, not redistributed here (see SOURCES.md)
+# Source PDFs and their full extracted text: published by IFAB, not redistributed here
+# (see SOURCES.md). Rebuild them locally with parse.py and clean.py.
 data/raw/
+data/excluded/
+data/processed/pages_raw.jsonl
+data/processed/pages_clean.jsonl
 
 # Editor and OS files
 .vscode/

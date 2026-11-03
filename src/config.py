@@ -20,8 +20,9 @@ LLM_TEMPERATURE = 0
 MAX_ANSWER_TOKENS = 1500
 
 # Refuse without calling the LLM when the best chunk is farther than this (cosine distance).
-# PROVISIONAL: set from five test questions (best hits of answerable questions 0.15-0.27,
-# the question with no answer 0.38). Calibrate it in the evaluation. None disables the check.
+# Checked against the evaluation set: answerable questions have best distances 0.09-0.31,
+# unanswerable ones 0.21-0.38, so the gate only catches clearly off-topic questions and the
+# prompt does the rest of the refusing (see README, Known limitations). None disables the check.
 MAX_TOP1_DISTANCE = 0.32
 
 REFUSAL = "The provided documents do not contain this."
