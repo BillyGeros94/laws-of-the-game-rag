@@ -89,14 +89,16 @@ def get_client():
 
 
 def format_source(number, hit):
-    """One numbered source block: a header line with its origin, then the raw chunk text."""
+    """One numbered source block: a header line with its origin, then the text around the
+    matched chunk (its context), or the chunk itself if it has none."""
     section = re.sub(r"\s*\|\s*", " - ", hit["section"])
-    location = " > ".join(part for part in (section, hit["heading"]) if part)
+    parts = (section, hit["heading"], hit.get("subheading", ""))
+    location = " > ".join(part for part in parts if part)
     header = (f"[{number}] {hit['title']} | {hit['doc_type']}, status: {hit['status']} "
               f"| {pages(hit)}")
     if location:
         header += f" | {location}"
-    return f"{header}\n{hit['text']}"
+    return f"{header}\n{hit.get('context') or hit['text']}"
 
 
 def build_messages(question, hits):

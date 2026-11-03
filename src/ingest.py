@@ -52,7 +52,7 @@ def main():
     collection = client.create_collection(COLLECTION, metadata={"hnsw:space": "cosine"})
 
     metadata_keys = ("filename", "title", "doc_type", "date", "status",
-                     "section", "heading", "page_start", "page_end")
+                     "section", "heading", "subheading", "page_start", "page_end", "context")
     collection.add(
         ids=[c["chunk_id"] for c in kept],
         embeddings=vectors.tolist(),

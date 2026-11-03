@@ -15,21 +15,19 @@ ROOT = Path(__file__).resolve().parent
 os.chdir(ROOT)
 sys.path.insert(0, str(ROOT / "src"))
 
-from config import REFUSAL, RETRIEVAL_MODE   # noqa: E402  (needs the path set above)
+from config import REFUSAL   # noqa: E402  (needs the path set above)
 from generate import is_refusal   # noqa: E402
 from rag import answer       # noqa: E402
-from retrieve import get_corpus, get_model, get_reranker, pages   # noqa: E402
+from retrieve import get_corpus, get_model, pages   # noqa: E402
 
 st.set_page_config(page_title="Laws of the Game Q&A", page_icon="⚽")
 
 
 @st.cache_resource(show_spinner="Loading the embedding model and the index...")
 def warm_up():
-    """Load the models and the index once per server process."""
+    """Load the embedding model and the index once per server process."""
     get_model()
     get_corpus()
-    if RETRIEVAL_MODE == "rerank":
-        get_reranker()
     return True
 
 
@@ -41,13 +39,13 @@ def show_sources(hits, refused):
     else:
         st.caption("The passages the answer was based on. The answer may cite only some of them.")
     for number, hit in enumerate(hits, start=1):
-        score = (f"relevance {hit['rerank_score']:.1f}" if "rerank_score" in hit
-                 else f"distance {hit['distance']:.3f}")
+        score = f"relevance {hit['grade']}/3" if "grade" in hit else f"distance {hit['distance']:.3f}"
         label = f"[{number}] {hit['title']} | {pages(hit)} | {score}"
         with st.expander(label):
-            where = " > ".join(part for part in (hit["section"], hit["heading"]) if part)
+            parts = (hit["section"], hit["heading"], hit.get("subheading", ""))
+            where = " > ".join(part for part in parts if part)
             st.caption(f"{hit['doc_type']}, status: {hit['status']}" + (f" | {where}" if where else ""))
-            st.text(hit["text"])
+            st.text(hit.get("context") or hit["text"])   # what the model was given
 
 
 st.title("Laws of the Game Q&A")
