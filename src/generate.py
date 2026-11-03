@@ -60,6 +60,24 @@ Answer in the language of the question. Use clear, accessible language. Be
 decisive when the sources support a conclusion and cautious when they do not."""
 
 
+# gpt-oss sometimes cites in its own format, 【1】, 【1†L4-L9】 or 【1†source】, not [1].
+NATIVE_CITATION = re.compile(r"【(\d+)(?:†[^】]*)?】")
+
+
+def normalize_citations(text):
+    """Rewrite the model's native citation marks as [1]."""
+    return NATIVE_CITATION.sub(r"[\1]", text)
+
+
+def is_refusal(text):
+    """True when the whole answer is the refusal sentence (perhaps with a citation or
+    punctuation around it). An answer that covers part of a question and refuses the rest
+    is not a refusal."""
+    core = re.sub(r"\[\d+\]", "", text).strip().strip('."*').strip()
+    core = re.sub(r"^(?:\**\s*(?:Answer|Decision)\s*:\s*\**\s*)", "", core)   # "**Decision:** ..."
+    return core == REFUSAL.rstrip(".")
+
+
 @lru_cache(maxsize=1)
 def get_client():
     """Create the LLM client once. The key comes from an environment variable, never from a file."""
@@ -101,7 +119,7 @@ def generate(question, hits):
     choice = response.choices[0]
     usage = response.usage
     return {
-        "answer": (choice.message.content or "").strip(),
+        "answer": normalize_citations((choice.message.content or "").strip()),
         "finish_reason": choice.finish_reason,   # "length" means the token limit cut the answer
         "prompt_tokens": getattr(usage, "prompt_tokens", None),
         "completion_tokens": getattr(usage, "completion_tokens", None),

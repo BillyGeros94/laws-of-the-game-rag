@@ -15,18 +15,21 @@ ROOT = Path(__file__).resolve().parent
 os.chdir(ROOT)
 sys.path.insert(0, str(ROOT / "src"))
 
-from config import REFUSAL   # noqa: E402  (needs the path set above)
+from config import REFUSAL, RETRIEVAL_MODE   # noqa: E402  (needs the path set above)
+from generate import is_refusal   # noqa: E402
 from rag import answer       # noqa: E402
-from retrieve import get_collection, get_model, pages   # noqa: E402
+from retrieve import get_corpus, get_model, get_reranker, pages   # noqa: E402
 
 st.set_page_config(page_title="Laws of the Game Q&A", page_icon="⚽")
 
 
 @st.cache_resource(show_spinner="Loading the embedding model and the index...")
 def warm_up():
-    """Load the embedding model and open the index once per server process."""
+    """Load the models and the index once per server process."""
     get_model()
-    get_collection()
+    get_corpus()
+    if RETRIEVAL_MODE == "rerank":
+        get_reranker()
     return True
 
 
@@ -38,7 +41,9 @@ def show_sources(hits, refused):
     else:
         st.caption("The passages the answer was based on. The answer may cite only some of them.")
     for number, hit in enumerate(hits, start=1):
-        label = f"[{number}] {hit['title']} | {pages(hit)} | distance {hit['distance']:.3f}"
+        score = (f"relevance {hit['rerank_score']:.1f}" if "rerank_score" in hit
+                 else f"distance {hit['distance']:.3f}")
+        label = f"[{number}] {hit['title']} | {pages(hit)} | {score}"
         with st.expander(label):
             where = " > ".join(part for part in (hit["section"], hit["heading"]) if part)
             st.caption(f"{hit['doc_type']}, status: {hit['status']}" + (f" | {where}" if where else ""))
@@ -78,8 +83,9 @@ if submitted:
             st.error(f"The model service returned an error ({type(error).__name__}). Please try again later.")
             st.stop()
 
-        # Refused by the distance check (no model call) or by the model itself.
-        refused = result["refused"] or REFUSAL in result["answer"]
+        # Refused by the gate (no model call) or by the model itself. An answer that covers
+        # part of the question and refuses the rest is shown as an answer.
+        refused = result["refused"] or is_refusal(result["answer"])
         if refused:
             st.info(REFUSAL)
         else:

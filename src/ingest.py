@@ -1,12 +1,12 @@
 """Embed the chunks and build the persistent Chroma index."""
 import json
-import re
 from pathlib import Path
 
 import chromadb
 from sentence_transformers import SentenceTransformer
 
 from config import COLLECTION, INDEX_DIR, MODEL_NAME
+from retrieve import breadcrumb   # the same location line the searches use
 
 IN = Path("data/processed/chunks.jsonl")
 
@@ -18,14 +18,6 @@ def load_chunks():
     """Return the chunk records as a list of dicts."""
     with open(IN, "r", encoding="utf-8") as f:
         return [json.loads(line) for line in f]
-
-
-def breadcrumb(chunk):
-    """Location line placed in front of the text when embedding, e.g.
-    'Laws of the Game 2026/27 > Law 12 - Fouls and Misconduct > 4. Disciplinary action'."""
-    section = re.sub(r"\s*\|\s*", " - ", chunk["section"])
-    parts = [chunk["title"], section, chunk["heading"]]
-    return " > ".join(part for part in parts if part)
 
 
 def main():

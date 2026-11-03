@@ -3,6 +3,8 @@
 Usage:
     python src/eval.py                    full run: retrieval and answer for every question
     python src/eval.py --retrieval-only   retrieval only: no model calls, no quota used
+    python src/eval.py --retrieval-only --mode dense   compare retrieval modes (dense, hybrid, rerank)
+    python src/eval.py --questions data/eval/questions_new_draft.csv   another question set
 """
 import argparse
 import csv
@@ -12,13 +14,14 @@ from pathlib import Path
 
 from openai import RateLimitError
 
-from config import MAX_TOP1_DISTANCE, REFUSAL
-from rag import answer
-from retrieve import pages, retrieve
+from config import RETRIEVAL_MODE
+from generate import is_refusal
+from rag import answer, gate_refuses
+from retrieve import MODES, pages, retrieve
 
 QUESTIONS = Path("data/eval/questions.csv")
-RESULTS = Path("data/eval/results.csv")
-RESULTS_RETRIEVAL = Path("data/eval/results_retrieval.csv")
+# Results go next to the questions file. For questions.csv: results.csv and
+# results_retrieval_<mode>.csv; for another file, its name is added, e.g. results_new_draft.csv.
 
 # Groq's free tier allows about 8,000 tokens a minute; a question uses about 2,500.
 PAUSE_SECONDS = 25   # wait between questions that called the model
@@ -26,16 +29,23 @@ RETRY_WAIT = 65      # wait after a rate-limit error before the one retry
 
 FIELDS = ["id", "set", "difficulty", "answerable", "question", "expected_answer",
           "expected_files", "expected_pages", "question_notes",
-          "model_answer", "gate_refuses", "answer_is_refusal", "hit_rank", "top_distance",
+          "model_answer", "gate_refuses", "answer_is_refusal", "hit_rank", "top_distance", "top_rerank_score",
           "sources", "finish_reason", "prompt_tokens", "completion_tokens",
           "correct", "grounded", "cited", "grading_notes"]   # the last four are for you to fill in
 
 
-def load_questions():
+def results_path(questions, retrieval_only, mode):
+    """Where a run's results are written."""
+    tag = "" if questions.stem == "questions" else "_" + questions.stem.removeprefix("questions_")
+    name = f"results{tag}_retrieval_{mode}.csv" if retrieval_only else f"results{tag}.csv"
+    return questions.with_name(name)
+
+
+def load_questions(path=QUESTIONS):
     """Return the question rows as a list of dicts."""
-    if not QUESTIONS.exists():
-        raise SystemExit(f"Questions file not found: {QUESTIONS}. Put questions.csv there.")
-    with open(QUESTIONS, "r", encoding="utf-8-sig", newline="") as f:
+    if not path.exists():
+        raise SystemExit(f"Questions file not found: {path}.")
+    with open(path, "r", encoding="utf-8-sig", newline="") as f:
         return list(csv.DictReader(f))
 
 
@@ -83,14 +93,14 @@ def hit_rank(hits, expected):
     return ""
 
 
-def ask(question):
+def ask(question, mode):
     """Answer a question; on a rate-limit error wait and retry once."""
     try:
-        return answer(question)
+        return answer(question, mode=mode)
     except RateLimitError:
         print(f"  rate limit reached; waiting {RETRY_WAIT} s and retrying once")
         time.sleep(RETRY_WAIT)
-        return answer(question)   # a second error propagates
+        return answer(question, mode=mode)   # a second error propagates
 
 
 def write_results(path, rows):
@@ -110,8 +120,9 @@ def summarise(rows, retrieval_only):
     print("\nSummary")
     if with_expected:
         hits = sum(1 for r in with_expected if r["hit_rank"] != "")
+        first = sum(1 for r in with_expected if r["hit_rank"] == 1)
         print(f"  retrieval hit rate: {hits}/{len(with_expected)} "
-              f"({100 * hits / len(with_expected):.0f}%)")
+              f"({100 * hits / len(with_expected):.0f}%) | ranked first: {first}/{len(with_expected)}")
         for level in ("1", "2", "3"):
             subset = [r for r in with_expected if r["difficulty"] == level]
             if subset:
@@ -136,12 +147,16 @@ def main():
     parser = argparse.ArgumentParser(description="Run the evaluation questions.")
     parser.add_argument("--retrieval-only", action="store_true",
                         help="only retrieve; make no model calls")
+    parser.add_argument("--questions", type=Path, default=QUESTIONS,
+                        help=f"questions file (default: {QUESTIONS})")
+    parser.add_argument("--mode", choices=MODES, default=RETRIEVAL_MODE,
+                        help=f"retrieval mode (default: {RETRIEVAL_MODE})")
     args = parser.parse_args()
     sys.stdout.reconfigure(encoding="utf-8")
 
-    questions = load_questions()
+    questions = load_questions(args.questions)
     expectations = {q["id"]: parse_expected(q) for q in questions}   # fail early on bad rows
-    path = RESULTS_RETRIEVAL if args.retrieval_only else RESULTS
+    path = results_path(args.questions, args.retrieval_only, args.mode)
 
     rows = []
     for index, q in enumerate(questions):
@@ -150,9 +165,9 @@ def main():
 
         try:
             if args.retrieval_only:
-                hits, result = retrieve(q["question"]), None
+                hits, result = retrieve(q["question"], mode=args.mode), None
             else:
-                result = ask(q["question"])
+                result = ask(q["question"], args.mode)
                 hits = result["hits"]
         except RateLimitError:
             print(f"\n{q['id']}: the rate limit is still reached after waiting. "
@@ -161,13 +176,15 @@ def main():
 
         top = hits[0]["distance"] if hits else None
         row["top_distance"] = f"{top:.4f}" if top is not None else ""
-        row["gate_refuses"] = (not hits) or (MAX_TOP1_DISTANCE is not None and top > MAX_TOP1_DISTANCE)
+        row["top_rerank_score"] = f"{hits[0]['rerank_score']:.3f}" if hits and "rerank_score" in hits[0] else ""
+        row["gate_refuses"] = gate_refuses(hits)
         row["hit_rank"] = hit_rank(hits, expectations[q["id"]])
         row["sources"] = "; ".join(f"[{n}] {h['filename']} {pages(h)} d={h['distance']:.3f}"
+                                   + (f" r={h['rerank_score']:.2f}" if "rerank_score" in h else "")
                                    for n, h in enumerate(hits, start=1))
         if result is not None:
             row["model_answer"] = result["answer"]
-            row["answer_is_refusal"] = REFUSAL in result["answer"]
+            row["answer_is_refusal"] = is_refusal(result["answer"])
             row["finish_reason"] = result["finish_reason"] or ""
             row["prompt_tokens"] = result["prompt_tokens"]
             row["completion_tokens"] = result["completion_tokens"]
@@ -175,13 +192,14 @@ def main():
         write_results(path, rows)
 
         status = "refused by the gate" if row["gate_refuses"] else "passed the gate"
-        print(f"{q['id']} | hit rank {row['hit_rank'] or '-'} | distance {row['top_distance']} | {status}")
+        score = f" | rerank {row['top_rerank_score']}" if row["top_rerank_score"] else ""
+        print(f"{q['id']} | hit rank {row['hit_rank'] or '-'} | distance {row['top_distance']}{score} | {status}")
 
         if result is not None and not result["refused"] and index < len(questions) - 1:
             time.sleep(PAUSE_SECONDS)
 
     summarise(rows, args.retrieval_only)
-    print(f"\nResults written to {path}")
+    print(f"\nMode: {args.mode} | results written to {path}")
 
 
 if __name__ == "__main__":

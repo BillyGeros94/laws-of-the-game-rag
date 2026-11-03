@@ -20,6 +20,11 @@ PAGE_COUNTER = re.compile(r"^\d/\d$")
 CIRCULAR_NUMBER = re.compile(r"^Circular no\. \d+$")
 CIRCULAR_EXACT = {"The International Football Association Board", "theifab.com", "www.theifab.com"}
 CIRCULAR_PREFIXES = ("Münstergasse", "+41 (0)")
+# Rule 7: the Laws book's "Details of all Law changes" (PDF pages 170-192) is a redline.
+# Deleted words are struck through, which text extraction keeps as ordinary words
+# ("a maximum of six eight may be used"), so repealed wording would read as current.
+# The current wording is in the Laws themselves. The plain summary on pages 167-169 is kept.
+REDLINE_PAGES = range(170, 193)
 
 
 def load_pages():
@@ -82,7 +87,7 @@ def main():
     pages = load_pages()
     OUT.parent.mkdir(parents=True, exist_ok=True)
 
-    stats = defaultdict(lambda: {"in": 0, "dropped": 0, "before": 0, "after": 0})
+    stats = defaultdict(lambda: {"in": 0, "dropped": 0, "redline": 0, "before": 0, "after": 0})
     with open(OUT, "w", encoding="utf-8") as f:
         for page in pages:
             s = stats[page["filename"]]
@@ -91,6 +96,12 @@ def main():
             # Rule 1: drop near-empty pages.
             if len(page["text"]) < MIN_CHARS:
                 s["dropped"] += 1
+                continue
+
+            # Rule 7: drop the redline pages.
+            if page["doc_type"] == "laws" and page["page"] in REDLINE_PAGES:
+                s["dropped"] += 1
+                s["redline"] += 1
                 continue
 
             text, section = clean_text(page["text"], page["doc_type"], page["page"])
@@ -103,7 +114,7 @@ def main():
     for filename, s in stats.items():
         kept = s["in"] - s["dropped"]
         print(filename)
-        print(f"  pages in: {s['in']} | dropped: {s['dropped']} | kept: {kept}")
+        print(f"  pages in: {s['in']} | dropped: {s['dropped']} (redline: {s['redline']}) | kept: {kept}")
         if kept:
             print(f"  avg chars before/after: {s['before'] // kept}/{s['after'] // kept}")
 
