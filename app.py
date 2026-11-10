@@ -31,11 +31,13 @@ def warm_up():
     return True
 
 
-def show_sources(hits, refused):
+def show_sources(hits, refused, by_gate):
     """List the retrieved passages, each in a collapsible block."""
     st.subheader("Sources")
-    if refused:
+    if by_gate:
         st.caption("The closest passages found. They were judged too distant to answer from.")
+    elif refused:
+        st.caption("The passages the model was given. It found no answer to the question in them.")
     else:
         st.caption("The passages the answer was based on. The answer may cite only some of them.")
     for number, hit in enumerate(hits, start=1):
@@ -90,4 +92,4 @@ if submitted:
             st.markdown(result["answer"] or "(empty answer)")
             if result["finish_reason"] == "length":
                 st.warning("The answer hit the length limit and may be cut off.")
-        show_sources(result["hits"], refused)
+        show_sources(result["hits"], refused, by_gate=result["refused"])

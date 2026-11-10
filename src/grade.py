@@ -9,8 +9,10 @@ A language model reads the question and each candidate and scores it:
     1  same topic, but does not help answer
     0  unrelated
 
-Retrieval keeps the passages scored GRADE_MIN or more (at most MAX_SOURCES), and refuses when
-there are none. The model only grades: answers are still written from the passage text.
+Retrieval keeps the passages scored GRADE_MIN or more (at most MAX_SOURCES). When there are none,
+or grading fails, it falls back to the top hybrid search results (src/retrieve.py), and the answer
+model refuses if they do not answer. The model only grades: answers are still written from the
+passage text.
 """
 import json
 import re

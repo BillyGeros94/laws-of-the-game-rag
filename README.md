@@ -48,7 +48,7 @@ Settings (model names, the retrieval mode, the grading limits, the gate, the ref
 - **Context for the search, not for the reader.** Each chunk is searched with a breadcrumb in front (document, Law, section, sub-heading), but the stored and displayed text is the original.
 - **Query instruction.** `bge` was trained with an instruction prefix on questions, so every question is embedded with it.
 - **No redline.** Pages 170–192 of the Laws book list every Law change with the deleted words struck through. Text extraction keeps struck-through words as ordinary words ("a maximum of six eight may be used"), so these pages are left out; the current wording is in the Laws themselves. The plain summary of changes on pages 167–169 is kept.
-- **Hybrid retrieval.** Embedding search finds passages that mean the same as the question; BM25 keyword search finds passages that share its exact words, which matters for rule text ("touches a match official", "goes directly into the goal"). The two rankings are merged by reciprocal rank fusion.
+- **Hybrid retrieval.** Embedding search finds passages that mean the same as the question; BM25 keyword search finds passages that share its exact words, which matters for rule text ("touches a match official", "goes directly into the goal"). The two rankings are merged by reciprocal rank fusion. On the evaluation questions, keyword search (with the glossary below) did not on its own change which questions were found; the grading step did (see [Retrieval](#retrieval)).
 - **Fan terms and typos.** Before keyword search, a short hand-made glossary adds the Laws' words for terms the Laws avoid ("dive" → simulation, "booked" → caution, "back-pass", "keeper"), and words not found anywhere in the documents are corrected to a close word that is ("substitues" → "substitutes"). See `src/lexical.py`.
 - **A language model grades the candidates.** `gpt-oss-20b` reads the question and the 12 best search results (each shortened to 600 characters) and scores each one: 3 states the rule asked about, 2 part of it, 1 same topic, 0 unrelated. Unlike the search, it links everyday words to the Laws' terms ("dives to win a free kick" to the simulation rule). Every passage graded 2 or more goes to the answer model, at most 6, so a simple question gets one or two sources and a question needing two rules can get both.
 - **A gate that the grader does not control.** A passage graded 2 or more always passes. When none is, the grader is not trusted to refuse: it sometimes grades every passage 0, including the one that answers the question, and it judges false premises ("six seconds") rather than topics. The top 4 search results then go to the answer model, which refuses if they do not answer. Only questions far from anything in the Laws (cosine distance above 0.32) are refused without a model call.
@@ -60,15 +60,17 @@ The evaluation set is [`data/eval/questions.csv`](data/eval/questions.csv): 26 q
 
 ### Retrieval
 
-A question counts as a hit when a passage sent to the answer model comes from the expected file, overlaps the expected pages, and contains one of the question's key phrases (`expected_phrases`), so a passage that only shares a page with the answer does not count. `python src/eval.py --retrieval-only` measures this.
+A question counts as a hit when a passage sent to the answer model comes from the expected file, overlaps the expected pages, and contains one of the question's key phrases (`expected_phrases`), so a passage that only shares a page with the answer does not count. `python src/eval.py --retrieval-only` measures this, and `--mode` compares the three retrieval modes on the same questions.
 
-| Measure (21 answerable questions) | Result |
-|---|---|
-| Relevant passage among those sent | 20 (95%) |
-| Relevant passage ranked first | 19 (90%) |
-| Sources sent per question | 3.0 on average, at most 6 |
+| Retrieval mode (21 answerable questions) | Relevant passage sent | Ranked first | Sources sent |
+|---|---|---|---|
+| Embedding search only (`dense`) | 18 (86%) | 17 (81%) | 4 |
+| Embedding and keyword search (`hybrid`) | 18 (86%) | 16 (76%) | 4 |
+| Hybrid, then language-model grading (`grade`, used by the app) | **20 (95%)** | **19 (90%)** | 2.7 on average, at most 6 |
 
-The one miss is Q20 (see *Failure examples*).
+Grading makes the difference. Both searches miss the simulation rule for "dives to win a free kick" (Q17) and the rule for a ball that touches the referee and goes into the goal (Q09); the grader finds both. On these questions, adding keyword search to the embedding search does not change which questions are found. Q20 is missed in every mode (see *Failure examples*).
+
+The `grade` row is from the full evaluation run ([`results_graded.csv`](data/eval/results_graded.csv)). The grader is a language model, so its results vary between runs: a separate retrieval-only run ([`results_retrieval_grade.csv`](data/eval/results_retrieval_grade.csv)) found 19 of 21 and ranked 18 first, also missing Q19. The `dense` and `hybrid` rows involve no language model and repeat exactly.
 
 ### Answers
 
