@@ -1,4 +1,4 @@
-"""Streamlit demo: ask a question about the Laws of the Game, get a cited answer.
+"""Laws of the Game: ask a question about the IFAB Laws, get an answer that cites its passages.
 
 Run locally from the project folder:  streamlit run app.py
 """
@@ -21,8 +21,18 @@ from config import REFUSAL   # noqa: E402  (needs the path set above)
 from generate import is_refusal   # noqa: E402
 from rag import answer       # noqa: E402
 from retrieve import get_corpus, get_model, pages   # noqa: E402
+import ui                    # noqa: E402
 
-st.set_page_config(page_title="Laws of the Game Q&A", page_icon="⚽")
+BRAND = "Laws of the Game"
+GLYPH = ('<path class="s" d="M8 8.5h10M8 12.5h10M8 16.5h6" stroke-width="2" stroke-linecap="round"/>')  # a page of text
+EXAMPLES = [   # (topic, question)
+    ("Substitutes", "How many substitutes can a team use?"),
+    ("Offside", "Is a player offside when receiving the ball from a throw-in?"),
+    ("Handball", "When is handling the ball not an offence?"),
+    ("Restarts", "What happens if the ball hits the referee and a goal is scored?"),
+]
+
+st.set_page_config(page_title="Laws of the Game · Answers with citations", page_icon=":material/menu_book:")
 
 # -------------------------
 # Christmas theme: blinking lights along the top and gentle snowfall, on its own from
@@ -128,7 +138,7 @@ def add_christmas_theme(force=False, snow=True, lights=True):
 add_christmas_theme()
 
 
-@st.cache_resource(show_spinner="Loading the embedding model and the index...")
+@st.cache_resource(show_spinner="Loading the Laws...")
 def warm_up():
     """Load the embedding model and the index once per server process."""
     get_model()
@@ -137,64 +147,81 @@ def warm_up():
 
 
 def show_sources(hits, refused, by_gate):
-    """List the retrieved passages, each in a collapsible block."""
-    st.subheader("Sources")
+    """The retrieved passages as numbered rows; each opens to the text the model was given."""
+    ui.label("Sources")
     if by_gate:
-        st.caption("The closest passages found. They were judged too distant to answer from.")
+        note = "No passage was close enough to answer from. The nearest ones are listed below."
     elif refused:
-        st.caption("The passages the model was given. It found no answer to the question in them.")
+        note = "The passages reviewed for this question. None of them answers it."
     else:
-        st.caption("The passages the answer was based on. The answer may cite only some of them.")
+        note = "The passages the answer is drawn from. Numbers in the answer refer to this list."
+    st.markdown(f'<div class="lead">{note}</div>', unsafe_allow_html=True)
     for number, hit in enumerate(hits, start=1):
         score = f"relevance {hit['grade']}/3" if "grade" in hit else f"distance {hit['distance']:.3f}"
-        label = f"[{number}] {hit['title']} | {pages(hit)} | {score}"
-        with st.expander(label):
+        with st.expander(f"{number:02d} {hit['title']} · {pages(hit)} · {score}"):
             parts = (hit["section"], hit["heading"], hit.get("subheading", ""))
-            where = " > ".join(part for part in parts if part)
-            st.caption(f"{hit['doc_type']}, status: {hit['status']}" + (f" | {where}" if where else ""))
+            where = " › ".join(part for part in parts if part)
+            st.markdown(f'<div class="mono">{hit["doc_type"]} · {hit["status"]}</div>'
+                        + (f'<div class="note" style="margin:.3rem 0 .6rem">{where}</div>' if where else ""),
+                        unsafe_allow_html=True)
             st.text(hit.get("context") or hit["text"])   # what the model was given
 
 
-st.title("Laws of the Game Q&A")
-st.write(
-    "Ask a question about the IFAB Laws of the Game 2026/27. Answers come only from the "
-    "Laws, IFAB Circulars 32, 33 and 34 and two trial protocols, with the passages shown below. "
-    "This is a portfolio project, not an official source, and it can be wrong: check the cited pages."
-)
-
+ui.apply(width="780px")
+ui.top_bar(BRAND, GLYPH)
 warm_up()
 
-with st.form("ask"):
-    question = st.text_input("Your question", placeholder="e.g. How many substitutes are allowed?")
-    submitted = st.form_submit_button("Ask")
+ui.hero("IFAB Laws of the Game 2026/27 · Circulars 32–34 · Trial protocols",
+        "The Laws of the Game,", "answered with citations.",
+        "Ask about any Law, restart or sanction. Every answer is drawn only from the official IFAB documents "
+        "and cites the passages it comes from, with their pages.")
 
+with st.form("ask", border=False):
+    question = st.text_input("Your question", key="question", label_visibility="collapsed",
+                             placeholder="Ask about a Law, a restart or a sanction")
+    submitted = st.form_submit_button("Ask", type="primary")
+
+asked = None
 if submitted:
-    question = question.strip()
-    if not question:
+    asked = question.strip()
+    if not asked:
         st.info("Type a question first.")
-    else:
-        try:
-            with st.spinner("Searching the Laws and writing the answer..."):
-                result = answer(question)
-        except RateLimitError:
-            st.warning("The free model service is busy: its rate limit has been reached. "
-                       "A per-minute limit clears within a minute; a daily limit clears the next day. "
-                       "Please try again later.")
-            st.stop()
-        except RuntimeError as error:   # e.g. the API key is not set; the message names no secret
-            st.error(str(error))
-            st.stop()
-        except APIError as error:
-            st.error(f"The model service returned an error ({type(error).__name__}). Please try again later.")
-            st.stop()
+elif "pending" in st.session_state:
+    asked = st.session_state.pop("pending")
 
-        # Refused by the gate (no model call) or by the model itself. An answer that covers
-        # part of the question and refuses the rest is shown as an answer.
-        refused = result["refused"] or is_refusal(result["answer"])
-        if refused:
-            st.info(REFUSAL)
-        else:
-            st.markdown(result["answer"] or "(empty answer)")
-            if result["finish_reason"] == "length":
-                st.warning("The answer hit the length limit and may be cut off.")
-        show_sources(result["hits"], refused, by_gate=result["refused"])
+if not asked:
+    ui.label("Examples")
+    with st.container(key="rows"):
+        for i, (topic, q) in enumerate(EXAMPLES):
+            if st.button(f"`{i + 1:02d}` **{topic}** {q}", key=f"row_{i}", width="stretch"):
+                st.session_state.pending = q
+                st.rerun()
+else:
+    try:
+        with st.spinner("Searching the Laws..."):
+            result = answer(asked)
+    except RateLimitError:
+        st.warning("The language model has reached its usage limit. A per-minute limit clears within a minute; "
+                   "a daily limit resets the next day.")
+        st.stop()
+    except RuntimeError as error:   # e.g. the API key is not set; the message names no secret
+        st.error(str(error))
+        st.stop()
+    except APIError as error:
+        st.error(f"The language model service returned an error ({type(error).__name__}). Please try again shortly.")
+        st.stop()
+
+    # Refused by the gate (no model call) or by the model itself. An answer that covers
+    # part of the question and refuses the rest is shown as an answer.
+    refused = result["refused"] or is_refusal(result["answer"])
+    ui.label("Answer")
+    st.markdown(f'<div class="note" style="margin:-.3rem 0 .5rem">{asked}</div>', unsafe_allow_html=True)
+    if refused:
+        st.markdown(f"{REFUSAL} The question may fall outside the Laws, or need different wording.")
+    else:
+        st.markdown(result["answer"] or "No answer was returned.")
+        if result["finish_reason"] == "length":
+            st.caption("The answer reached its length limit and may be incomplete.")
+    show_sources(result["hits"], refused, by_gate=result["refused"])
+
+ui.foot("Source: The IFAB, Laws of the Game 2026/27 · Independent reference, not affiliated with The IFAB")
