@@ -1,12 +1,10 @@
 # Laws of the Game Q&A
 
-A retrieval-augmented generation (RAG) demo that answers questions about the IFAB **Laws of the Game 2026/27**. Every answer is built only from the retrieved passages, which are shown next to it so the answer can be checked.
+A retrieval-augmented generation (RAG) app that answers questions about the IFAB **Laws of the Game 2026/27**. Every answer is drawn only from the retrieved passages and cites them with their pages, so it can be checked against the Laws.
 
-**Live demo:** https://laws-of-the-game-rag-jfwbcgzktfjpzuuyobpk2e.streamlit.app/
+**Live app:** https://laws-of-the-game-rag-jfwbcgzktfjpzuuyobpk2e.streamlit.app/
 
-> This is a portfolio project, not an official source. It can be wrong. Check the cited pages in the Laws before relying on an answer.
-
-![The answer page](docs/screenshot-answer.png)
+> An independent reference, not affiliated with The IFAB. Each answer cites the passages and pages it comes from.
 
 ## What it covers
 
@@ -35,7 +33,7 @@ question → embedding search ─┐
 | Index | `src/ingest.py` | Embeds the chunks with `BAAI/bge-small-en-v1.5` (384 dimensions) and stores them in a persistent Chroma index with cosine distance |
 | Retrieve | `src/retrieve.py`, `src/lexical.py`, `src/grade.py` | Runs an embedding search and a BM25 keyword search and merges them; `openai/gpt-oss-20b` on Groq grades the top 12 from 0 to 3, and every passage graded 2 or more is kept (at most 6) |
 | Answer | `src/rag.py`, `src/generate.py` | Applies the gate, then asks `openai/gpt-oss-120b` on Groq (OpenAI-compatible API, temperature 0) to answer from the numbered sources |
-| Demo | `app.py` | Streamlit page that shows the answer and the passages it was given |
+| App | `app.py`, `ui.py` | Streamlit page that shows the answer, the passages it was given and their pages |
 
 Settings (model names, the retrieval mode, the grading limits, the gate, the refusal sentence) live in one place: `src/config.py`.
 
@@ -109,7 +107,7 @@ Weighting questions by difficulty (1, 2 or 3; unanswerable 2) and averaging the 
 - **The fan-term glossary is hand-made and short.** It covers a few common terms; others ("pen", "cycling shorts") rely on the embedding search and the grader. It was written with the evaluation questions in view, so its effect on them is not independent evidence.
 - **Diagrams and image-only pages are lost.** About 30 pages with images lose their diagram content, which probably includes the handball diagrams. Four pages were image-only and were dropped.
 - **The Law changes lose their explanations.** Leaving out the redline pages (170–192) also leaves out IFAB's short explanation of why each Law changed. Questions about the reasons for a change rely on the circulars and the summary on pages 167–169.
-- **One free API key, shared by every visitor.** Groq's free tier allows 8,000 tokens a minute for each model. A grading call uses about 2,500 tokens and an answer about 2,000, so the demo can serve roughly three questions a minute before it reports that the service is busy.
+- **One free API key, shared by every visitor.** Groq's free tier allows 8,000 tokens a minute for each model. A grading call uses about 2,500 tokens and an answer about 2,000, so the app can serve roughly three questions a minute before it reports that the service is busy.
 - **Sub-headings are found by a heuristic.** A few diagram captions on the signal pages ("Free kick for attacking team", "Red and yellow card") are treated as sub-headings, and a sub-heading too short to stand alone is merged with the next one.
 - **The model sometimes adds detail**, misapplies a nearby rule, or omits facts that were in the retrieved text. Its native citation marks (`【1†…】`) are rewritten as `[1]`.
 - **English only.** The embedding model is English-only.
@@ -128,7 +126,7 @@ export GROQ_API_KEY="your-key"   # a free key from console.groq.com; never commi
 streamlit run app.py
 ```
 
-The repository includes the built index, so the demo runs without rebuilding it. To rebuild from the PDFs, download the documents listed in [SOURCES.md](data/SOURCES.md) into `data/raw/` and run, in order:
+The repository includes the built index, so the app runs without rebuilding it. To rebuild from the PDFs, download the documents listed in [SOURCES.md](data/SOURCES.md) into `data/raw/` and run, in order:
 
 ```bash
 python src/parse.py && python src/clean.py && python src/chunk.py && python src/ingest.py
@@ -148,7 +146,7 @@ Changing the embedding model means changing `src/config.py` and re-running `src/
 
 ## Notes
 
-- **Shared quota.** The demo uses one free Groq key shared by all visitors, so it will sometimes answer that the service is busy. Try again later.
+- **Shared quota.** The app uses one free Groq key shared by all visitors, so at busy times it reports that the usage limit has been reached; a per-minute limit clears within a minute.
 - **Privacy.** Questions you type are sent to Groq to grade the passages and generate the answer. Do not enter anything personal.
 
 ## License
