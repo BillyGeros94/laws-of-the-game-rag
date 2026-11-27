@@ -209,7 +209,9 @@ def mark_list_groups(blocks):
             end += 1
         count = end - i + 1
         if count > LIST_MAX_ITEMS:
-            size = math.ceil(count / math.ceil(count / LIST_GROUP_ITEMS))   # balanced groups
+            # Balanced groups: 16 items need ceil(16 / 5) = 4 groups, so 4 items each
+            # (not 5, 5, 5, 1)
+            size = math.ceil(count / math.ceil(count / LIST_GROUP_ITEMS))
             opener = i - 1 if i > 0 and blocks[i - 1]["text"].endswith(":") else None
             for start in range(i + size, end + 1, size):
                 blocks[start]["list_break"] = opener

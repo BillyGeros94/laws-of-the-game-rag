@@ -90,6 +90,8 @@ def retrieve(question, k=TOP_K, mode=RETRIEVAL_MODE):
 
     query = question if mode == "dense" else correct_spelling(question, vocabulary)[0]
     vector = get_model().encode(QUERY_PREFIX + query, normalize_embeddings=True)
+    # All vectors have unit length, so the dot product is the cosine similarity and
+    # 1 - cosine is the same cosine distance Chroma would report
     distances = 1 - vectors @ vector
     dense_order = list(np.argsort(distances))
 

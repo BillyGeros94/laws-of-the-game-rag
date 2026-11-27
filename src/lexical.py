@@ -68,6 +68,9 @@ class BM25:
         self.docs = [Counter(terms(d)) for d in docs]
         self.lengths = [sum(d.values()) for d in self.docs]
         self.avg_length = sum(self.lengths) / len(self.lengths)
+        # idf: rare terms weigh more. The "1 +" (as in Lucene) keeps it positive even for a
+        # term found in most chunks. k1 limits how much repeating a term helps; b scales
+        # the score down for long chunks
         df = Counter(t for d in self.docs for t in d)
         n = len(self.docs)
         self.idf = {t: math.log(1 + (n - f + 0.5) / (f + 0.5)) for t, f in df.items()}
@@ -111,6 +114,8 @@ def expand(question):
 
 def rrf(*rankings):
     """Reciprocal rank fusion of several best-first lists of indices."""
+    # Each list adds 1 / (RRF_K + rank): only ranks count, never the raw scores, so cosine
+    # distances and BM25 scores need no common scale. A chunk near the top of both lists wins
     fused = Counter()
     for ranking in rankings:
         for rank, index in enumerate(ranking, start=1):
